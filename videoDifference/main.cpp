@@ -8,6 +8,7 @@
 
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/videoio/videoio.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
 #include <iostream>
@@ -18,6 +19,24 @@ using namespace std;
 
 //hide the local functions in an anon namespace
 namespace {
+    
+    Mat framediff(Mat image0, Mat image1, Mat image2) {
+//        return (image2 - 4*image1 + 3*image0) / 2;
+        return image2 - image0;
+    }
+    
+    Mat laplace(Mat image) {
+        Mat kernel = Mat::ones( 3, 3, CV_8S );
+        kernel.at<uchar>(0,1) = 2;
+        kernel.at<uchar>(1,0) = 2;
+        kernel.at<uchar>(1,1) = -12;
+        kernel.at<uchar>(1,2) = 2;
+        kernel.at<uchar>(2,1) = 2;
+        Mat output;
+        filter2D(image, output, -1, kernel);
+        return output;
+    }
+    
     void help(char** av) {
         cout << "The program captures frames from a video file, image sequence (01.jpg, 02.jpg ... 10.jpg) or camera connected to your computer." << endl
         << "Usage:\n" << av[0] << " <video file, image sequence or device number>" << endl
@@ -34,26 +53,41 @@ namespace {
     int process(VideoCapture& capture) {
         int n = 0;
         char filename[200];
-        //string window_name = "video | q or esc to quit";
-        //cout << "press space to save a picture. q or esc to quit" << endl;
-        //namedWindow(window_name, WINDOW_KEEPRATIO); //resizable window;
-        //Mat frame;
-        string window_name = "this is live!";
+        
+        string window_name = "this is live! - q or esc to quit - space to save frame";
         namedWindow(window_name, WINDOW_KEEPRATIO);
-        Mat im2;
-        Mat im1;
-        Mat i0;
-        Mat diff;
+
+        int effectFlag = 1; // 1: framediff, 2: modified lapacian
+
+        Mat i0;              // current frame
+        Mat im1;             // frame at i-1
+        Mat im2;             // frame at i-2
+        Mat processed_frame; // resultant frame
+
         capture >> im2;
         waitKey(1);
         capture >> im1;
         waitKey(1);
-        for (;;) {
-            capture >> i0;
-            diff = (im2 - 4*im1 + 3*i0) / 2;
-            diff = im2 - i0;
 
-            imshow(window_name,diff);
+        for (;;) {
+            
+            capture >> i0;
+            
+            switch (effectFlag) {
+                case 1:
+                    processed_frame = framediff(i0, im1, im2);
+                    i0.copyTo(im1);
+                    im1.copyTo(im2);
+                    break;
+                case 2:
+                    processed_frame = laplace(i0);
+                    break;
+                default:
+                    processed_frame = i0;
+                    break;
+            }
+            
+            imshow(window_name, processed_frame);
             char key = (char)waitKey(1); //delay N millis, usually long enough to display and capture input
             switch (key) {
                 case 'q':
@@ -61,16 +95,19 @@ namespace {
                 case 27: //escape key
                     return 0;
                 case ' ': //Save an image
-                    sprintf(filename,"filename%.3d.jpg",n++);
-                    imwrite(filename,diff);
+                    sprintf(filename, "processed_frame%.3d.png", n++);
+                    imwrite(filename, processed_frame);
                     cout << "Saved " << filename << endl;
+                    break;
+                case '1':
+                    effectFlag = 1;
+                    break;
+                case '2':
+                    effectFlag = 2;
                     break;
                 default:
                     break;
             }
-            //i0.copyTo(im2);
-            im1.copyTo(im2);
-            i0.copyTo(im1);
         }
         return 0;
     }
