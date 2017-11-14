@@ -88,7 +88,7 @@ namespace {
             }
             
             imshow(window_name, processed_frame);
-            char key = (char)waitKey(1); //delay N millis, usually long enough to display and capture input
+            char key = (char)waitKey(1000/32); //delay for 32 frames per second
             switch (key) {
                 case 'q':
                 case 'Q':
