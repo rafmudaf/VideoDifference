@@ -119,14 +119,19 @@ int main(int ac, char** av) {
         help(av);
         return 1;
     }
+    
     std::string arg = av[1];
-    VideoCapture capture(arg); //try to open string, this will attempt to open it as a video file or image sequence
-    if (!capture.isOpened()) //if this fails, try to open as a video camera, through the use of an integer param
-        capture.open(atoi(arg.c_str()));
-    if (!capture.isOpened()) {
-        cerr << "Failed to open the video device, video file or image sequence!\n" << endl;
-        help(av);
-        return 1;
+
+    VideoCapture capture(atoi(arg.c_str())); //try to open input argument as int... this will attempt to open it as a camera
+    
+    if (!capture.isOpened())  { //if this fails, try to open as a video file or stream
+        capture.open(arg);
+        if (!capture.isOpened()) {
+            cerr << "Failed to open the video device, video file or image sequence!\n" << endl;
+            help(av);
+            return 1;
+        }
     }
+
     return process(capture);
 }
