@@ -20,23 +20,6 @@ using namespace std;
 //hide the local functions in an anon namespace
 namespace {
     
-    Mat framediff(Mat image0, Mat image1, Mat image2) {
-//        return (image2 - 4*image1 + 3*image0) / 2;
-        return image2 - image0;
-    }
-    
-    Mat laplace(Mat image) {
-        Mat kernel = Mat::ones( 3, 3, CV_8S );
-        kernel.at<uchar>(0,1) = 2;
-        kernel.at<uchar>(1,0) = 2;
-        kernel.at<uchar>(1,1) = -12;
-        kernel.at<uchar>(1,2) = 2;
-        kernel.at<uchar>(2,1) = 2;
-        Mat output;
-        filter2D(image, output, -1, kernel);
-        return output;
-    }
-    
     void help(char** av) {
         cout << "The program captures frames from a video file, image sequence (01.jpg, 02.jpg ... 10.jpg) or camera connected to your computer." << endl
         << "Usage:\n" << av[0] << " <video file, image sequence or device number>" << endl
@@ -48,6 +31,46 @@ namespace {
         << "\texample: " << av[0] << " video.avi" << endl
         << "\tYou can also pass the path to an image sequence and OpenCV will treat the sequence just like a video." << endl
         << "\texample: " << av[0] << " right%%02d.jpg" << endl;
+    }
+    
+    Mat framediff(Mat image0, Mat image1, Mat image2) {
+//        return (image0 - 2*image1 + image2)/((image0 - image1) + (image1 - image2));
+        return image2 - image0;
+    }
+    
+    Mat laplace(Mat image) {
+        Mat kernel = Mat::zeros( 3, 3, CV_8S );
+        kernel.at<uchar>(0,1) = 1;
+        kernel.at<uchar>(1,0) = 1;
+        kernel.at<uchar>(1,1) = -4;
+        kernel.at<uchar>(1,2) = 1;
+        kernel.at<uchar>(2,1) = 1;
+        Mat output;
+        filter2D(image, output, -1, kernel);
+        return output;
+    }
+    
+    Mat mod_laplace(Mat image) {
+        Mat kernel = Mat::ones( 3, 3, CV_8S );
+        kernel.at<uchar>(0,1) = 2;
+        kernel.at<uchar>(1,0) = 2;
+        kernel.at<uchar>(1,1) = -12;
+        kernel.at<uchar>(1,2) = 2;
+        kernel.at<uchar>(2,1) = 2;
+        Mat output;
+        filter2D(image, output, -1, kernel);
+        return output;
+    }
+
+    Mat sharp(Mat image) {
+        Mat filter = laplace(image);
+        return image - filter;
+    }
+    
+    Mat negative(Mat image) {
+        Mat result;
+        image.convertTo(result, CV_8S, -1, 0);
+        return result;
     }
     
     int process(VideoCapture& capture) {
@@ -76,11 +99,18 @@ namespace {
             switch (effectFlag) {
                 case 1:
                     processed_frame = framediff(i0, im1, im2);
-                    i0.copyTo(im1);
                     im1.copyTo(im2);
+                    i0.copyTo(im1);
                     break;
                 case 2:
-                    processed_frame = laplace(i0);
+                    processed_frame = mod_laplace(i0);
+                    break;
+                case 3:
+                    processed_frame = sharp(i0);
+                    break;
+                case 4:
+                    processed_frame = mod_laplace(i0);
+                    processed_frame = negative(processed_frame);
                     break;
                 default:
                     processed_frame = i0;
@@ -99,11 +129,20 @@ namespace {
                     imwrite(filename, processed_frame);
                     cout << "Saved " << filename << endl;
                     break;
+                case '0':
+                    effectFlag = 0;
+                    break;
                 case '1':
                     effectFlag = 1;
                     break;
                 case '2':
                     effectFlag = 2;
+                    break;
+                case '3':
+                    effectFlag = 3;
+                    break;
+                case '4':
+                    effectFlag = 4;
                     break;
                 default:
                     break;
